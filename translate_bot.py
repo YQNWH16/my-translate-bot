@@ -11,13 +11,15 @@ bot_token = '8608923887:AAGuIfjHMNwLFkG0ecRzFqaQ6zb9bLzGg1M'
 
 client = TelegramClient('bot_session', api_id, api_hash).start(bot_token=bot_token)
 
+# ဘာသာပြန်ပေးမည့် ဘာသာစကားများ သတ်မှတ်ခြင်း
 to_my = GoogleTranslator(source='auto', target='my')
 to_en = GoogleTranslator(source='auto', target='en')
 to_es = GoogleTranslator(source='auto', target='es')
+to_zh = GoogleTranslator(source='auto', target='zh-CN') # တရုတ်ဘာသာ (ရိုးရှင်း)
 
-print("Bot is running on Render...")
+print("Bot is running on Render with Chinese support...")
 
-# /start command အတွက် အပိုင်း
+# /start command အတွက်
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     welcome_msg = "သင့်အနေနှင့် ကျွန်ုပ်ရဲ့ စကားပြန် Bot ကို စတင်အသုံးပြုသည့်အခါ တစ်မိနစ်ခန့်စောင့်ပါ။ တစ်မိနစ်ခန့်စောင့်ပြီးပါက ဆက်လက်အသုံးပြုနိုင်ပါပြီ။"
@@ -25,7 +27,7 @@ async def start(event):
 
 @client.on(events.NewMessage)
 async def handle_message(event):
-    # /start မဟုတ်တဲ့ တခြားစာသားတွေကိုပဲ ဘာသာပြန်မယ်
+    # /start မဟုတ်သော စာသားများကို ဘာသာပြန်မည်
     if event.is_private and not event.raw_text.startswith('/start'):
         text = event.raw_text
         if text and len(text.strip()) > 0:
@@ -36,14 +38,22 @@ async def handle_message(event):
                     detected_lang = "unknown"
                 
                 results = []
+                
+                # ၁။ မြန်မာစာ မဟုတ်လျှင် မြန်မာပြန်မည်
                 if not (detected_lang.startswith('my') or any('\u1000' <= c <= '\u109f' for c in text)):
                     results.append(f"🇲🇲 **Myanmar:**\n{to_my.translate(text)}")
                 
+                # ၂။ အင်္ဂလိပ်စာ မဟုတ်လျှင် အင်္ဂလိပ်ပြန်မည်
                 if not detected_lang.startswith('en'):
                     results.append(f"🇺🇸 **English:**\n{to_en.translate(text)}")
                 
+                # ၃။ စပိန်စာ မဟုတ်လျှင် စပိန်ပြန်မည်
                 if not detected_lang.startswith('es'):
                     results.append(f"🇪🇸 **Spanish:**\n{to_es.translate(text)}")
+                
+                # ၄။ တရုတ်စာ မဟုတ်လျှင် တရုတ်ပြန်မည်
+                if not detected_lang.startswith('zh'):
+                    results.append(f"🇨🇳 **Chinese:**\n{to_zh.translate(text)}")
 
                 reply_message = "\n\n".join(results)
                 if reply_message:
