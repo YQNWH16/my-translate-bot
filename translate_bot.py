@@ -1,6 +1,26 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
 from deep_translator import GoogleTranslator
 from langdetect import detect, DetectorFactory
+
+# Render Port Error ကို ဖြေရှင်းရန် Dummy Web Server ဆောက်ခြင်း
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'Bot is Alive')
+
+def run_web_server():
+    # Render က ပေးတဲ့ Port ကို ယူသုံးပါမယ် (မရှိရင် 10000 ကို သုံးပါမယ်)
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    print(f"Dummy server started on port {port}")
+    server.serve_forever()
+
+# Web Server ကို နောက်ကွယ် (Thread) မှာ သီးသန့်မောင်းထားပါမယ်
+threading.Thread(target=run_web_server, daemon=True).start()
 
 DetectorFactory.seed = 0
 
@@ -11,15 +31,15 @@ bot_token = '8608923887:AAGuIfjHMNwLFkG0ecRzFqaQ6zb9bLzGg1M'
 
 client = TelegramClient('bot_session', api_id, api_hash).start(bot_token=bot_token)
 
-# ဘာသာပြန်ပေးမည့် ဘာသာစကားများ သတ်မှတ်ခြင်း
+# ဘာသာပြန်စက်များ
 to_my = GoogleTranslator(source='auto', target='my')
 to_en = GoogleTranslator(source='auto', target='en')
 to_es = GoogleTranslator(source='auto', target='es')
-to_zh = GoogleTranslator(source='auto', target='zh-CN') # တရုတ်ဘာသာ (ရိုးရှင်း)
+to_zh = GoogleTranslator(source='auto', target='zh-CN')
 
-print("Bot is running on Render with Chinese support...")
+print("Bot is running on Render with Port Fix...")
 
-# /start command အတွက်
+# /start စာသား
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     welcome_msg = "သင့်အနေနှင့် ကျွန်ုပ်ရဲ့ စကားပြန် Bot ကို စတင်အသုံးပြုသည့်အခါ တစ်မိနစ်ခန့်စောင့်ပါ။ တစ်မိနစ်ခန့်စောင့်ပြီးပါက ဆက်လက်အသုံးပြုနိုင်ပါပြီ။"
@@ -27,7 +47,6 @@ async def start(event):
 
 @client.on(events.NewMessage)
 async def handle_message(event):
-    # /start မဟုတ်သော စာသားများကို ဘာသာပြန်မည်
     if event.is_private and not event.raw_text.startswith('/start'):
         text = event.raw_text
         if text and len(text.strip()) > 0:
@@ -38,20 +57,13 @@ async def handle_message(event):
                     detected_lang = "unknown"
                 
                 results = []
-                
-                # ၁။ မြန်မာစာ မဟုတ်လျှင် မြန်မာပြန်မည်
+                # မြန်မာ၊ အင်္ဂလိပ်၊ စပိန်၊ တရုတ် ဘာသာပြန်ချက်များ
                 if not (detected_lang.startswith('my') or any('\u1000' <= c <= '\u109f' for c in text)):
                     results.append(f"🇲🇲 **Myanmar:**\n{to_my.translate(text)}")
-                
-                # ၂။ အင်္ဂလိပ်စာ မဟုတ်လျှင် အင်္ဂလိပ်ပြန်မည်
                 if not detected_lang.startswith('en'):
                     results.append(f"🇺🇸 **English:**\n{to_en.translate(text)}")
-                
-                # ၃။ စပိန်စာ မဟုတ်လျှင် စပိန်ပြန်မည်
                 if not detected_lang.startswith('es'):
                     results.append(f"🇪🇸 **Spanish:**\n{to_es.translate(text)}")
-                
-                # ၄။ တရုတ်စာ မဟုတ်လျှင် တရုတ်ပြန်မည်
                 if not detected_lang.startswith('zh'):
                     results.append(f"🇨🇳 **Chinese:**\n{to_zh.translate(text)}")
 
